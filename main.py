@@ -1,55 +1,84 @@
 from fastapi import FastAPI, Body
 from fastapi.responses import JSONResponse
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import os
-from typing import Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Dict, Any
+import os
+import requests
+
+# ================= APP =================
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],          # потом можно сузить до домена
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ================= CONFIG =================
 
-SMTP_EMAIL = "applications.primefusion@gmail.com"
-SMTP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-print("LOGIN:", SMTP_EMAIL)
-print("PASS EXISTS:", bool(SMTP_PASSWORD))
+FROM_EMAIL = "Prime Fusion <onboarding@resend.dev>"
+TO_EMAIL = "applications.primefusion@gmail.com"
 
+if not RESEND_API_KEY:
+    print("❌ RESEND_API_KEY is not set")
 
+# ================= EMAIL =================
+
+def send_email(subject: str, content: str):
+    response = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "from": FROM_EMAIL,
+            "to": [TO_EMAIL],
+            "subject": subject,
+            "text": content
+        },
+        timeout=10
+    )
+
+    if response.status_code >= 400:
+        print("❌ RESEND ERROR:", response.text)
+        response.raise_for_status()
+
+# ================= ROUTES =================
 
 @app.post("/apply")
 async def apply(data: Dict[str, Any] = Body(...)):
     try:
-        lines = []
+        # Формируем тело письма
+        body_lines = []
         for key, value in data.items():
-            if value in [None, ""]:
+            if value in [None, "", False]:
                 value = "-"
-            lines.append(f"{key}: {value}")
+            body_lines.append(f"{key}: {value}")
 
-        body = "\n".join(lines)
+        body = "\n".join(body_lines)
 
-        msg = MIMEMultipart()
-        msg["From"] = f"Prime Fusion Website <{SMTP_EMAIL}>"
-        msg["To"] = SMTP_EMAIL
-        msg["Subject"] = "📥 New booking application (Waitlist)"
-
-        msg.attach(MIMEText(body, "plain"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
+        send_email(
+            subject="📥 New booking application (Waitlist)",
+            content=body
+        )
 
         return {"ok": True}
 
     except Exception as e:
-        print("ERROR:", e)
-        return JSONResponse({"ok": False}, status_code=500)
+        print("❌ APPLY ERROR:", e)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "email_failed"}
+        )
+
+# ================= HEALTHCHECK =================
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
