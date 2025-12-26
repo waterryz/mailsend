@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 from typing import Dict, Any
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
