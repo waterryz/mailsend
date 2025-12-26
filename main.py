@@ -8,6 +8,15 @@ from typing import Dict, Any
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 SMTP_EMAIL = "applications.primefusion@gmail.com"
 SMTP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
