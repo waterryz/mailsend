@@ -1,26 +1,27 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Body
 from fastapi.responses import JSONResponse
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+from typing import Dict, Any
 
 app = FastAPI()
 
-# === CONFIG ===
 SMTP_EMAIL = "applications.primefusion@gmail.com"
 SMTP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
+print("LOGIN:", SMTP_EMAIL)
+print("PASS EXISTS:", bool(SMTP_PASSWORD))
+
+
 
 @app.post("/apply")
-async def apply(request: Request):
+async def apply(data: Dict[str, Any] = Body(...)):
     try:
-        data = await request.json()
-
-        # формируем тело письма
         lines = []
         for key, value in data.items():
-            if value is None or value == "":
+            if value in [None, ""]:
                 value = "-"
             lines.append(f"{key}: {value}")
 
@@ -37,7 +38,7 @@ async def apply(request: Request):
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
 
-        return JSONResponse({"ok": True})
+        return {"ok": True}
 
     except Exception as e:
         print("ERROR:", e)
