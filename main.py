@@ -49,6 +49,20 @@ def send_email(subject: str, content: str):
         print("❌ RESEND ERROR:", response.text)
         response.raise_for_status()
 
+def notify_ai_message(message: str, lang: str):
+    send_email(
+        subject="💬 New AI Assistant message",
+        content=f"""
+New message in AI Assistant
+
+Language: {lang}
+
+Message:
+{message}
+        """.strip()
+    )
+
+
 # ================= ROUTES =================
 
 @app.post("/apply")
@@ -75,6 +89,35 @@ async def apply(data: Dict[str, Any] = Body(...)):
         return JSONResponse(
             status_code=500,
             content={"ok": False, "error": "email_failed"}
+        )
+@app.post("/ai-notify")
+async def ai_notify(data: Dict[str, Any] = Body(...)):
+    try:
+        message = (data.get("message") or "").strip()
+        lang = data.get("lang", "unknown")
+
+        if not message:
+            return {"ok": False}
+
+        send_email(
+            subject="💬 New AI Assistant message",
+            content=f"""
+New message in AI Assistant
+
+Language: {lang}
+
+Message:
+{message}
+            """.strip()
+        )
+
+        return {"ok": True}
+
+    except Exception as e:
+        print("❌ AI NOTIFY ERROR:", e)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False}
         )
 
 # ================= HEALTHCHECK =================
